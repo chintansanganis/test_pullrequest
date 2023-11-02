@@ -1,0 +1,551 @@
+<%page expression_filter="h"/>
+<%!
+  import json
+  from django.utils.translation import ugettext as _
+  from openedx.core.djangolib.js_utils import js_escaped_string, dump_js_escaped_json
+  from openedx.features.course_favourites.models import CourseFavourite
+%>
+<%! main_css = "style-theme" %>
+<%inherit file="../main.html" />
+<%
+  course_discovery_enabled = settings.FEATURES.get('ENABLE_COURSE_DISCOVERY')
+%>
+<%namespace name='static' file='../static_content.html'/>
+
+% if False:
+<%block name="header_extras">
+  % for template_name in ["course_card", "filter_bar", "filter", "facet", "facet_option"]:
+  <script type="text/template" id="${template_name}-tpl">
+      <%static:include path="discovery/${template_name}.underscore" />
+  </script>
+  % endfor
+  <%static:require_module module_name="js/discovery/discovery_factory" class_name="DiscoveryFactory">
+    DiscoveryFactory(
+      ${course_discovery_meanings | n, dump_js_escaped_json},
+      getParameterByName('search_query'),
+      "${user_language | n, js_escaped_string}",
+      "${user_timezone | n, js_escaped_string}"
+    );
+  </%static:require_module>
+</%block>
+% endif
+
+<%block name="pagetitle">
+  %if request.path == '/certs':
+    ${_("Training Courses")}
+  %else:
+    الدورات التدريبية
+  %endif
+</%block>
+<div id="message-modal" class="modal-message" style="display:none; margin: 10px 0px; background-color: #FFEFCD;">
+  <div class="header-container">
+      <div class="modal-content" style="padding:20px 0px; width: 100%; border-radius:0px; background-color: #FFEFCD;">
+      <span id="close-message" style="cursor:pointer; color: black; float: left; font-size: 40px; ">&times;</span>
+      <span class="fa fa-info-circle " style="font-size: 20px;">
+        <span style="font-weight: 600;"> تنويه</span>
+      </span>
+      <p id="message-data message-message-data hidden" style="font-size: 16px; margin-inline-start: 15px;">نشكر لكم ثقتكم في سماء ونود إبلاغكم أن أقرب موعد لحجز الاختبار سيكون في شهر سبتمبر</p>
+      %if request.path == '/courses':
+      <p id="message-data message-message-data hidden" style="font-size: 16px; margin-inline-start: 15px;">هذه الدورات التدريبية متاحة لمستخدمين المنصة الوطنية للتعليم الإلكتروني FutureX</p>
+      %endif
+    </div>
+  </div>
+</div>
+<main id="main" aria-label="Content" tabindex="-1">
+<section class="find-courses">
+<section class="courses-container">  
+<div class="menu__picker">
+  <div class="container__big">
+    <div class="menu__wrap">
+      <a href="#"><img src="${static.url('images/theme/close.png')}" alt="close"></a>
+      <ul>
+        <li><a href="/certificates/verification">التحقق من الشهادة</a></li>
+        <li><a href="/about">عن الخدمة</a></li>
+        % if request.user.is_authenticated :
+          <li><a style="font-size: 18px;" href="/course-favourites/courses/">المفضلة</a></li>
+        % endif
+        % if request.user.is_authenticated:
+          <li><a href="/dashboard">${_("Dashboard")}</a></li>
+        % endif
+        <li><a href="/certs"> ${_("Browse Courses")}</a></li>
+        <li><a href="/courses"> تصفح الدورات</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+% if False:
+  <div class="container__small">
+    <div id="discovery-form" role="search" aria-label="course" class="wrapper-search-context">
+      <form class="wrapper-search-input">
+        <label for="discovery-input" class="sr" style="margin:10px 10px;">
+          %if request.path == '/certs':
+            ${_('Search for a course')}
+          %else:
+            البحث عن الدورات التدريبية
+          %endif
+        </label>
+        <input id="discovery-input" class="discovery-input" placeholder="
+          %if request.path == '/certs':
+            ${_('Search for a course')}
+          %else:
+            البحث عن الدورات التدريبية
+          %endif
+        " type="text"/>
+        <button type="submit" class="button postfix discovery-submit discovery-button" title="${_('Search')}">
+          <span class="icon fa fa-search" aria-hidden="true"></span>
+          <div aria-live="polite" aria-relevant="all">
+            <div id="loading-indicator" class="loading-spinner hidden">
+              <span class="icon fa fa-spinner fa-spin" aria-hidden="true"></span>
+              <span class="sr"></span>
+            </div>
+          </div>
+        </button>
+        <div id="discovery-message" class="search-status-label"></div>
+      </form>
+      <!-- <div id="discovery-message" class="search-status-label"></div> -->
+      <div id="filter-bar" class="filters hide-phone is-collapsed">
+      </div>
+    </div>
+  </div>
+% endif
+<div class="main__container--block">
+  <div class="top__container--block">
+    <div class="container__small">
+      %if request.path == '/certs':
+        <h6> ${_("Browse Courses")}</h6>
+      %else:
+        <h6>تصفح الدورات</h6>
+      %endif
+      <ul>
+        <li class="active__top--menu">
+          %if request.path == '/certs':
+            <a href="#">${_("All Courses")}</a>
+          %else:
+            <a href="#">جميع الدورات</a>
+          %endif
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom__container--block block-filter courses${'' if course_discovery_enabled else ' no-course-discovery'}">
+    <!-- courses filters -->
+    % if False:
+    <div class="filter-course-type">
+    <aside aria-label="${_('Refine Your Search')}" class="search-facets phone-menu">
+      <section class="search-facets-lists"></section>
+    </aside>
+    </div>
+    <!-- <div class="search-facets">
+      <section class="search-facets-lists"></section>
+    </div> -->
+    % endif
+      <!-- courses filters -->
+      <div class="container__small">
+        <div class="course__list--grid courses-listing courses-list courses_list_element">
+              %for i,course in enumerate(courses):
+              <div class="elem__list--grid courses-listing-item">
+                <%include file="../course.html" args="course=courses[i].comptia_course" />
+              </div>
+              %endfor
+        </div>
+      </div>
+    </div>
+    <div class="center">
+      <div class="pagination">
+      </div>
+    </div>
+    <div>
+      <input type="hidden" id="total-results" val="0">
+      <input type="hidden" id="page-size" val="0">
+      <input type="hidden" id="current-page" val="0">
+    </div>
+    <div class="container__small">
+    <ul style="padding-right: 0;">
+      %if request.path == '/certs':
+        <li style="display: block; text-align: justify; color:red;">
+          ${_(""
+          "The Professional Certification Support Program is a program supported by the "
+          "Human Resources Development Fund, with the goal of “financial compensation "
+          "for training costs and test fees, after obtaining the professional certificate, "
+          "to encourage and motivate the national workforce and job seekers to obtain accredited "
+          "professional certificates to develop their skills and expertise in the specialized and "
+          "required fields.” In the labor market, financial compensation for training and certification "
+          "costs is obtained in accordance with")}
+          <span>
+            <a href="https://hrdf.org.sa/program?alias=%D8%AF%D8%B9%D9%85-%D8%A7%D9%84%D8%B4%D9%87%D8%A7%D8%AF%D8%A7%D8%AA-%D8%A7%D9%84%D9%85%D9%87%D9%86%D9%8A%D8%A9-%D8%A7%D9%84%D8%A7%D8%AD%D8%AA%D8%B1%D8%A7%D9%81%D9%8A%D8%A9""
+            target="_blank">
+              ${_("Conditions and controls of the Human Resources Development Fund - objective.")}
+            </a>
+          </span>
+        </li>
+      %else:
+        <li style="display: none; text-align: justify; color:red;">
+          ${_(""
+          "The Professional course Support Program is a program supported by the "
+          "Human Resources Development Fund, with the goal of “financial compensation "
+          "for training costs and test fees, after obtaining the professional course, "
+          "to encourage and motivate the national workforce and job seekers to obtain accredited "
+          "professional certificates to develop their skills and expertise in the specialized and "
+          "required fields.” In the labor market, financial compensation for training and certification "
+          "costs is obtained in accordance with")}
+          <span>
+            <a href="https://hrdf.org.sa/program?alias=%D8%AF%D8%B9%D9%85-%D8%A7%D9%84%D8%B4%D9%87%D8%A7%D8%AF%D8%A7%D8%AA-%D8%A7%D9%84%D9%85%D9%87%D9%86%D9%8A%D8%A9-%D8%A7%D9%84%D8%A7%D8%AD%D8%AA%D8%B1%D8%A7%D9%81%D9%8A%D8%A9""
+            target="_blank">
+              ${_("Conditions and controls of the Human Resources Development Fund - objective.")}
+            </a>
+          </span>
+        </li>
+      %endif
+    </ul>
+  </div>
+</div>
+</section>
+</section>
+</main>
+<style>
+  .course-items{
+        display: flex;
+        justify-content: right;
+    }
+    .course-langauge{
+        background-color: rgb(242, 244, 244);
+        color: rgb(0, 0, 0);
+        margin-left: 10px;
+        padding: 5px 5px;
+        border-radius: 12px;
+    }
+    .course-cert-category{
+        background-color: rgb(242, 244, 244);
+        color: rgb(0, 0, 0);
+        margin-left: 10px;
+        padding: 5px 5px;
+        border-radius: 12px;
+    }
+    .course-support{
+        background-color: rgb(242, 244, 244);
+        color: rgb(0, 0, 0);
+        margin-left: 10px;
+        padding: 5px 5px;
+        border-radius: 12px;
+    }
+    .wrapper-search-input{
+      display: flex;
+      padding: 25px 0px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    .wrapper-search-input > input{
+      width: 100%;
+      min-width: 300px;
+      max-width: 500px;
+      height: 55px;
+      padding-right: 15px;
+      padding-left: 15px;
+      margin: 10px 10px;
+      outline: none;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 400;
+      color: #3A3A41;
+      border-radius: 12px;
+      border: 2px solid rgba(211,216,226,0.5);
+    }
+    .hidden{
+      display: none;
+    }
+    .discovery-button{
+      min-width: 140px;
+      min-height: 55px;
+      margin: 10px 10px;
+      background-color: #1D4A50;
+      border-radius: 10px;
+      border: 0px;
+      outline: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: #FFFFFF;
+      font-weight: 500;
+      line-height: 30px;
+    }
+    .clear-filters{
+      display: none;
+    }
+    .filters-inner > ul {
+      list-style-type: none;
+      margin: 10px 0px;
+      padding: 0px;
+      display: flex;
+    }
+    .center {
+      text-align: center;
+      margin-top: -60px;
+      margin-bottom: 60px;
+    }
+
+    .pagination {
+      display: inline-block;
+    }
+
+    .pagination button {
+      color: black;
+      float: left;
+      padding: 8px 16px;
+      background-color: white;
+      text-decoration: none;
+      transition: background-color .3s;
+      border: 1px solid #ddd;
+      margin: 0 4px;
+    }
+
+    .pagination button.active {
+      background-color: #1D4A50;
+      color: white;
+      border: 1px solid #1D4A50;
+    }
+    .pagination button:hover:not(.active) {background-color: #ddd;}
+    .main__container--block .bottom__container--block{
+      min-height: 300px;
+    }
+    .main__container--block{
+      background-color: #F4F6F8;
+    }
+    .favourite__div-block{
+      margin-bottom: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      margin-left: 20px;
+    }
+    .fa-heart{
+      position: absolute;
+    }
+    .powered_by{
+      position: absolute;
+    }
+    .favourite>.fa-heart{
+        content: url("${static.url('images/theme/favourite_selected.svg')}");
+    }
+</style>
+<%block name="js_extra">
+  <script type="text/javascript">
+    $( document ).ready(function() {
+      var modal = document.getElementById("message-modal");
+      var span = document.getElementById("close-message");
+      if (span){
+        span.onclick = function() {
+          modal.style.display = "none";
+        }
+      }
+      var page_size = 1;
+      var current_page = 1;
+      % if request.path == '/certs':
+      $("#certs-header-link").addClass("active__header");
+      % else:
+      $("#courses-header-link").addClass("active__header");
+      % endif
+      //Block to remove rendered page numbers
+      $("#total-results").on("change", function(e) {
+        page_size = $("#total-results").val()/$("#page-size").val();
+        $(".pagination").empty();
+        renderPageNumbers(page_size);
+      })
+      populateDiscount()
+      // function to render page numbers for received courses.
+      function renderPageNumbers(page_size) {
+        
+        setTimeout(() => {
+          populateDiscount()
+        }, 1000);
+        % if user.is_authenticated:
+          setTimeout(() => {
+            getFavouriteCourses()
+          }, 1000);
+          // populateDiscount()
+        % else:
+          setTimeout(() => {
+            hideFavouriteImage()
+          }, 1000);
+        % endif
+
+        // debugger;
+        current_page = $("#current-page").val()
+        $(".pagination").append("<button class='prev-page-number prev' >&gt</button>")
+
+        if (current_page > 2 && current_page <= page_size) {
+          for (let i = current_page - 3; i < page_size && i < (current_page - 3) + 5; i++) {
+            if(i == current_page-1){
+              $(".pagination").append("<button class='page-number active' id='page-num-"+(i+1)+"'>"+(i+1)+"</button>")
+            } else {
+              $(".pagination").append("<button class='page-number' id='page-num-"+(i+1)+"'>"+(i+1)+"</button>")
+            }
+          }
+        }
+        else {
+          for (let i = 0; i < page_size && i < 5; i++) {
+            if(i == current_page-1){
+              $(".pagination").append("<button class='page-number active' id='page-num-"+(i+1)+"'>"+(i+1)+"</button>")
+            } else {
+              $(".pagination").append("<button class='page-number' id='page-num-"+(i+1)+"'>"+(i+1)+"</button>")
+            }
+          }
+        }
+        $(".pagination").append("<button class='next-page-number next' >&lt;</button>")
+      }
+
+      //Block that is executed when user click on next button
+      $(".pagination").on("click", ".next", function(e){
+        e.preventDefault();
+        if(current_page < page_size) {
+          $("#page-num-"+(parseInt(current_page)+1)).trigger("click");
+        }
+      });
+
+      //Block that is executed when user click on prev button
+      $(".pagination").on("click", ".prev", function(e){
+        e.preventDefault();
+        if(current_page > 1) {
+          $("#page-num-"+(parseInt(current_page)-1)).trigger("click");
+        }
+      });
+
+      //block that is executed for pagination response
+      $(".pagination").on("click", ".page-number", function(e){
+        $(".courses_list_element").empty();
+      });
+
+      // function to hide favourite div if user is not logged in
+      function hideFavouriteImage () {
+        $(".favourite__div-block").each(function(index){
+          $(this).css("display", "none")
+        })
+      }
+
+      // function to mark course favourites according to logged in user
+      <%
+        course_favourite_list = CourseFavourite.get_course_favourite_list(user)
+      %>
+      var course_favourite_list = []
+      % if course_favourite_list:
+        % for course_id in course_favourite_list:
+          course_favourite_list.push("${course_id}")
+        % endfor
+      % endif
+      getFavouriteCourses()
+      function getFavouriteCourses () {
+        $(".favourite__div-block").each(function(index){
+          var course_id = $(this).data('course_id')
+          debugger;
+          if (course_favourite_list.indexOf(course_id) != -1){
+            $(this).addClass('favourite')
+          }
+        })
+      }
+      function populateDiscount(){
+        user_email = "{request.user.email}"
+        discount = parseFloat("{discount}")
+        email_domain = user_email.split('@')[1]
+        // course_discounts = {course_discounts | n}
+        discount_domains = ["tetco.sa","tatweer.sa","tbc.sa","tatweertransit.com","rafedsa.com","talemia.sa"]
+        product_codes = []
+        $(".favourite__div-block").each(function(index){
+          var course_id = $(this).data('course_code');
+          product_codes.push(course_id)
+        })
+        fetch_course_prices(product_codes = product_codes)
+      }
+      function fetch_course_prices(product_codes=[] ){
+        $.ajax({
+          url: "/course_modes/FetchCoursePrices",
+          type: "POST",
+          data: {
+            "course_codes": product_codes
+          },
+          success: function(data){
+            renderDiscountFromAPI(data["data"])
+          },
+          error: function(data){
+          }
+        })
+      }
+      function renderDiscountFromAPI(data){
+        $(".discounted_price").each(function(){
+          course_id = $(this).data("course_code");
+          if (course_id){
+            var keyToFind = course_id;
+            for(var i in data){
+              if(data[i]["productCode"] == keyToFind){
+                // Add an element to the dictionary
+                $(this).removeClass("hidden");
+                price_before_discount = data[i]["originalPrice"]
+                price_after_discount = data[i]["discountedPrice"];
+                if (price_after_discount == price_before_discount){
+                  disocunt_html = price_after_discount.toFixed(2)+"<span> ريال سعودي<span>";
+                  $(this).html(disocunt_html);
+                  break;
+                }
+                disocunt_html = "<s style='color:grey;'>"+price_before_discount+"</s> "+price_after_discount.toFixed(2)+"<span> ريال سعودي<span>";
+                $(this).html(disocunt_html);
+                break; // If you want to break out of the loop once you've found a match
+              }
+            }
+            $(".regular_price").addClass("hidden");
+            %if request.path == '/courses':
+            $(".discounted_price").addClass("hidden");
+            %endif
+          }
+        })
+      }
+      // to add course to the favourite or hide from non logged in user
+      % if user.is_authenticated:
+
+      // block to mark favourite courses on load page
+      // setTimeout(() => {
+      //   getFavouriteCourses()
+      // }, 1000);
+      // populateDiscount()
+      
+      // ajax to POST or DELETE course favourite
+      $(document).on("click", '.favourite__div-block', function(e) { 
+        e.preventDefault();
+        $(this).toggleClass("favourite")
+
+        var course_id = $(this).data('course_id')
+        var method_type = "DELETE"
+        var url = "/course-favourites/api/favourite/"+ course_id + "/"
+        var is_favourite = ""
+        var data = ""
+        if (course_favourite_list.indexOf(course_id) != -1){
+          course_favourite_list.splice(course_favourite_list.indexOf(course_id), 1)
+        }
+
+        if ($(this).hasClass("favourite")){
+          method_type = "POST"
+          var url = "/course-favourites/api/favourite/"
+          is_favourite = true
+          data = {'is_favourite':is_favourite,'course_id': course_id,}
+          course_favourite_list.push(course_id)
+        }
+
+        $.ajax({
+          url: url,
+          type: method_type,
+          data: data,
+          success: function(data){
+          },
+          error: function(data){
+
+          }
+
+        })
+      });
+      // hide course favourite div from the non logged in user
+      % else:
+        setTimeout(() => {
+          hideFavouriteImage()
+        }, 1000);
+      % endif
+    });
+  </script>
+</%block>
