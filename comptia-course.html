@@ -1,0 +1,62 @@
+<%def name="online_help_token()"><% return "course" %></%def>
+<%namespace name='static' file='static_content.html'/>
+<%!
+from django.utils.translation import ugettext as _
+from django.urls import reverse
+from six import text_type
+%>
+<% 
+  languages = (
+    ("EN",_("English")),
+    ("en",_("English")),
+    ("AR",_("Arabic")),
+    ("ar",_("Arabic")),
+    ("BOTH",_("Both"))
+  )
+  certificate_categories = (
+    ("TE",_("Training Course + Exam")),
+    ("E", _("Exam only"))
+  )
+%>
+<%page args="course" expression_filter="h"/>
+
+
+<div class="course__image" style="background:url('${course.course_image_url}')">
+  <div class="favourite__div-block" data-course_id="${course.id}" data-course_code="${course.id.run}">
+    <img src="/static/samaaedu-theme/images/theme/white_circle.svg">
+    <img class="fa-heart" src="/static/samaaedu-theme/images/theme/favourite_default.svg">
+  </div>
+</div>
+<div class="title__course" id="${course.id}" role="region" aria-label="${course.display_name_with_default}">
+  <h6>${course.display_name_with_default}</h6>
+  % if course.course_category:
+    <span>${_('Category')}: ${course.course_category.name or ""}</span>
+  % endif 
+  <div class="course-items">
+    %if course.language:
+      <span class="course-langauge">
+        ${dict(languages).get(course.language)}
+      </span>
+    %endif
+    %if course.certificate_category:
+      <span class="course-cert-category">
+        ${dict(certificate_categories).get(course.certificate_category)}
+      </span>
+    %endif
+    %if course.powered_by_hadaf:
+      <span class="course-support">
+        مدعوم من هدف
+      </span>
+    %endif
+  </div>
+</div>
+
+<div class="course__button course__button">
+  <span class="discounted_price hidden" data-course_code="${course.id.run}" data="${course.id}"></span><span class="regular_price hidden">
+    ريال سعودي
+  </span>
+  <a href="${reverse('about_course', args=[text_type(course.id)])}" target="_self">تفاصيل الشهادة</a>
+</div>
+<%static:require_module_async module_name="js/dateutil_factory" class_name="DateUtilFactory">
+    DateUtilFactory.transform(iterationKey=".localized_datetime");
+</%static:require_module_async>
